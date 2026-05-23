@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Wizards 🧙</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f4ff; min-height: 100vh; }
+button { font-family: inherit; }
+
+@keyframes popIn    { 0%{transform:scale(0.6);opacity:0} 70%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
+@keyframes shake    { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-9px)} 75%{transform:translateX(9px)} }
+@keyframes ringFly  { 0%{transform:translate(-50%,0) scale(0.5);opacity:1} 100%{transform:translate(-50%,-140px) scale(1.3);opacity:0} }
+@keyframes sonicRun { 0%{left:-120px} 100%{left:110%} }
+@keyframes starBurst{ 0%{transform:scale(0) rotate(0deg);opacity:1} 100%{transform:scale(2.5) rotate(360deg);opacity:0} }
+@keyframes slideUp  { 0%{transform:translateY(40px);opacity:0} 100%{transform:translateY(0);opacity:1} }
+@keyframes sparkle  { 0%{opacity:0;transform:scale(0)} 50%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(0)} }
+
+.pop-in   { animation: popIn  0.35s ease forwards; }
+.shake    { animation: shake  0.35s ease; }
+.slide-up { animation: slideUp 0.3s ease forwards; }
+
+.sonic-overlay {
+  position: fixed; inset: 0; pointer-events: none; z-index: 999; overflow: hidden;
+}
+.sonic-char {
+  position: absolute; bottom: 80px; font-size: 3.5rem; line-height: 1;
+  animation: sonicRun 1.4s cubic-bezier(.2,.8,.6,1) forwards;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+}
+.ring {
+  position: absolute; font-size: 2rem;
+  animation: ringFly 0.8s ease-out forwards;
+}
+.star-burst {
+  position: absolute;
+  animation: starBurst 0.7s ease-out forwards;
+}
+.sparkle {
+  position: absolute; font-size: 1.2rem;
+  animation: sparkle 0.8s ease forwards;
+}
+.prog-bar-outer { background:#e5e7eb; border-radius:50px; height:14px; overflow:hidden; }
+.prog-bar-inner { height:100%; border-radius:50px; transition: width 0.6s ease; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const API = 'http://localhost:3001/api';
+
+// ── SOUND ENGINE ──────────────────────────────────────────────────────────────
+let audioCtx = null;
+function getCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function playTone(freqs, durs, type = 'sine', vol = 0.2) {
+  try {
+    const ctx = getCtx();
+    const gain = ctx.createGain();
+    gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(vol, ctx.currentTime);
+    let t = ctx.currentTime;
+    freqs.forEach((f, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = type;
+      osc.frequency.setValueAtTime(f, t);
+      osc.connect(gain);
+      osc.start(t); osc.stop(t + durs[i]);
+      t += durs[i];
+    });
+    gain.gain.exponentialRampToValueAtTime(0.001, t);
+  } catch (_) {}
+}
+const SFX = {
+  correct: () => playTone([523,659,784,1047],[0.1,0.1,0.1,0.25],'square',0.18),
+  wrong:   () => playTone([300,200],[0.15,0.25],'sawtooth',0.15),
+  ring:    () => playTone([1200,1500],[0.05,0.08],'sine',0.12),
+  win:     () => playTone([523,659,784,659,784,1047],[0.1,0.1,0.1,0.1,0.1,0.35],'square',0.18),
+};
+
+// ── API HELPERS ───────────────────────────────────────────────────────────────
+async function apiPost(path, body) {
+  try {
+    const r = await fetch(API + path, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    return r.ok ? r.json() : null;
+  } catch { return null; }
+}
+async function apiGet(path) {
+  try { const r = await fetch(API + path); return r.ok ? r.json() : null; }
+  catch { return null; }
+}
+
+// ── DATA ──────────────────────────────────────────────────────────────────────
+const LETTER_DATA = [
+  {letter:'A',words:[{w:'Apple',e:'🍎'},{w:'Dog',e:'🐶'},{w:'Fish',e:'🐟'},{w:'Hat',e:'🎩'}]},
+  {letter:'B',words:[{w:'Cat',e:'🐱'},{w:'Banana',e:'🍌'},{w:'Hat',e:'🎩'},{w:'Rain',e:'🌧️'}]},
+  {letter:'C',words:[{w:'Apple',e:'🍎'},{w:'Dog',e:'🐶'},{w:'Cake',e:'🎂'},{w:'Fish',e:'🐟'}]},
+  {letter:'D',words:[{w:'Cat',e:'🐱'},{w:'Fish',e:'🐟'},{w:'Dog',e:'🐶'},{w:'Rain',e:'🌧️'}]},
+  {letter:'E',words:[{w:'Egg',e:'🥚'},{w:'Apple',e:'🍎'},{w:'Frog',e:'🐸'},{w:'Hat',e:'🎩'}]},
+  {letter:'F',words:[{w:'Star',e:'⭐'},{w:'Cat',e:'🐱'},{w:'Fish',e:'🐟'},{w:'Rain',e:'🌧️'}]},
+  {letter:'G',words:[{w:'Hat',e:'🎩'},{w:'Grapes',e:'🍇'},{w:'Dog',e:'🐶'},{w:'Moon',e:'🌙'}]},
+  {letter:'H',words:[{w:'Horse',e:'🐴'},{w:'Cat',e:'🐱'},{w:'Fish',e:'🐟'},{w:'Egg',e:'🥚'}]},
+  {letter:'I',words:[{w:'Dog',e:'🐶'},{w:'Cat',e:'🐱'},{w:'Ice',e:'🧊'},{w:'Apple',e:'🍎'}]},
+  {letter:'J',words:[{w:'Ball',e:'⚽'},{w:'Star',e:'⭐'},{w:'Rain',e:'🌧️'},{w:'Jam',e:'🫙'}]},
+  {letter:'K',words:[{w:'Kite',e:'🪁'},{w:'Lion',e:'🦁'},{w:'Dog',e:'🐶'},{w:'Fish',e:'🐟'}]},
+  {letter:'L',words:[{w:'Apple',e:'🍎'},{w:'Lion',e:'🦁'},{w:'Hat',e:'🎩'},{w:'Fish',e:'🐟'}]},
+  {letter:'M',words:[{w:'Dog',e:'🐶'},{w:'Cat',e:'🐱'},{w:'Moon',e:'🌙'},{w:'Hat',e:'🎩'}]},
+  {letter:'N',words:[{w:'Nest',e:'🪺'},{w:'Orange',e:'🍊'},{w:'Pig',e:'🐷'},{w:'Cat',e:'🐱'}]},
+  {letter:'O',words:[{w:'Apple',e:'🍎'},{w:'Orange',e:'🍊'},{w:'Fish',e:'🐟'},{w:'Hat',e:'🎩'}]},
+  {letter:'P',words:[{w:'Dog',e:'🐶'},{w:'Pig',e:'🐷'},{w:'Star',e:'⭐'},{w:'Fish',e:'🐟'}]},
+  {letter:'R',words:[{w:'Rain',e:'🌧️'},{w:'Dog',e:'🐶'},{w:'Ship',e:'🚢'},{w:'Fish',e:'🐟'}]},
+  {letter:'S',words:[{w:'Dog',e:'🐶'},{w:'Moon',e:'🌙'},{w:'Star',e:'⭐'},{w:'Hat',e:'🎩'}]},
+  {letter:'T',words:[{w:'Dog',e:'🐶'},{w:'Tree',e:'🌳'},{w:'Fish',e:'🐟'},{w:'Cat',e:'🐱'}]},
+  {letter:'W',words:[{w:'Whale',e:'🐳'},{w:'Dog',e:'🐶'},{w:'Cat',e:'🐱'},{w:'Fish',e:'🐟'}]},
+];
+const SPELL_WORDS = [
+  {word:'CAT',emoji:'🐱',hint:'A furry pet that says meow'},
+  {word:'DOG',emoji:'🐶',hint:'A loyal four-legged friend'},
+  {word:'FISH',emoji:'🐟',hint:'It swims in the sea'},
+  {word:'BIRD',emoji:'🐦',hint:'It flies through the sky'},
+  {word:'FROG',emoji:'🐸',hint:'It jumps and says ribbit'},
+  {word:'STAR',emoji:'⭐',hint:'It shines bright at night'},
+  {word:'MOON',emoji:'🌙',hint:'It glows in the night sky'},
+  {word:'SHIP',emoji:'🚢',hint:'It sails on the ocean'},
+  {word:'CAKE',emoji:'🎂',hint:'You eat this on your birthday'},
+  {word:'DRUM',emoji:'🥁',hint:'You hit this to make music'},
+  {word:'TREE',emoji:'🌳',hint:'It has leaves and a trunk'},
+  {word:'RAIN',emoji:'🌧️',hint:'Water that falls from clouds'},
+  {word:'BOOK',emoji:'📚',hint:'You read stories from this'},
+  {word:'JUMP',emoji:'🦘',hint:'Bounce off the ground!'},
+  {word:'FLAG',emoji:'🚩',hint:'It waves in the wind on a pole'},
+];
+const STORY_DATA = [
+  ['The','cat','sat','on','the','mat.'],
+  ['A','big','dog','ran','in','the','park.'],
+  ['She','read','a','good','book.'],
+  ['The','sun','is','bright','today.'],
+  ['I','like','to','eat','apples.'],
+  ['Birds','can','fly','in','the','sky.'],
+  ['He','jumped','over','the','big','puddle.'],
+  ['We','play','games','at','school.'],
+];
+const GAME_LABELS = {letters:'Letter Match',spell:'Spell It!',trace:'Trace & Write',story:'Story Builder'};
+const AVATARS = ['🧙','🦸','🧚','🐸','🦊','🐼','🦁','🐙'];
+const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+// Teaching mat data — one entry per letter
+const LETTER_INFO = {
+  A:{lower:'a',word:'Apple',  emoji:'🍎',tip:'Two lines meet at the top, then one line across the middle.'},
+  B:{lower:'b',word:'Bear',   emoji:'🐻',tip:'Start at the top, go straight down, then add two bumps on the right.'},
+  C:{lower:'c',word:'Cat',    emoji:'🐱',tip:'Curve round from the top-right, going left and back up — like a half-circle.'},
+  D:{lower:'d',word:'Dog',    emoji:'🐶',tip:'Go straight down, then add one big round bump on the right.'},
+  E:{lower:'e',word:'Egg',    emoji:'🥚',tip:'One line down, then three short lines pointing right — top, middle, bottom.'},
+  F:{lower:'f',word:'Fish',   emoji:'🐟',tip:'One tall line down, then two short lines pointing right at the top and middle.'},
+  G:{lower:'g',word:'Grapes', emoji:'🍇',tip:'Like C, but stop halfway and add a short line pointing left inside.'},
+  H:{lower:'h',word:'Horse',  emoji:'🐴',tip:'Two tall lines, then connect them with one short line in the middle.'},
+  I:{lower:'i',word:'Ice',    emoji:'🧊',tip:'One straight line down — simple! Add a short line at top and bottom.'},
+  J:{lower:'j',word:'Jam',    emoji:'🫙',tip:'One straight line down, then curve to the left at the bottom.'},
+  K:{lower:'k',word:'Kite',   emoji:'🪁',tip:'One tall line, then two diagonal lines meeting it in the middle — like an arrow.'},
+  L:{lower:'l',word:'Lion',   emoji:'🦁',tip:'One tall line straight down, then a short line to the right at the bottom.'},
+  M:{lower:'m',word:'Moon',   emoji:'🌙',tip:'Two tall lines with two bumps going up between them.'},
+  N:{lower:'n',word:'Nest',   emoji:'🪺',tip:'Two tall lines connected by a diagonal line going from top-left to bottom-right.'},
+  O:{lower:'o',word:'Orange', emoji:'🍊',tip:'Draw a big oval — round and closed, like a ball!'},
+  P:{lower:'p',word:'Pig',    emoji:'🐷',tip:'One tall line down, then one bump on the right at the very top.'},
+  Q:{lower:'q',word:'Queen',  emoji:'👑',tip:'Draw an O, then add a tiny line at the bottom-right corner.'},
+  R:{lower:'r',word:'Rain',   emoji:'🌧️',tip:'Like P, but add a leg going diagonally down to the right.'},
+  S:{lower:'s',word:'Star',   emoji:'⭐',tip:'Curve to the left at the top, then S-curve to the right at the bottom.'},
+  T:{lower:'t',word:'Tree',   emoji:'🌳',tip:'One tall line straight down, then one line crossing it at the top.'},
+  U:{lower:'u',word:'Umbrella',emoji:'☂️',tip:'Go down, curve smoothly at the bottom, and come back up.'},
+  V:{lower:'v',word:'Vine',   emoji:'🌿',tip:'Two diagonal lines meeting at a point at the bottom.'},
+  W:{lower:'w',word:'Whale',  emoji:'🐳',tip:'Two V shapes side by side — four diagonal lines.'},
+  X:{lower:'x',word:'X-ray',  emoji:'🔍',tip:'Two diagonal lines crossing each other in the middle.'},
+  Y:{lower:'y',word:'Yarn',   emoji:'🧶',tip:'Two lines meet in the middle, then one straight line going down.'},
+  Z:{lower:'z',word:'Zoo',    emoji:'🦒',tip:'A line across the top, a diagonal line to the bottom-left, then a line across the bottom.'},
+};
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function shuffle(arr) {
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+function generateDistractors(word) {
+  const pool='AEIOURSTLNMDBPGCHFWY'.split('');
+  return shuffle(pool.filter(l=>!word.includes(l))).slice(0,Math.max(0,6-word.length));
+}
+
+// ── SONIC CELEBRATION ─────────────────────────────────────────────────────────
+function SonicCelebration({ active }) {
+  if (!active) return null;
+  return (
+    <div className="sonic-overlay">
+      <div className="sonic-char">🦔</div>
+      {['-30px','0px','30px','60px','90px'].map((offset,i)=>(
+        <div key={i} className="ring"
+          style={{bottom:50,left:`calc(50% + ${offset})`,animationDelay:`${i*0.09}s`}}>💍</div>
+      ))}
+      {['18%','38%','58%','78%'].map((left,i)=>(
+        <div key={i} className="star-burst"
+          style={{left,top:`${20+i*12}%`,fontSize:'1.8rem',animationDelay:`${i*0.1}s`}}>⭐</div>
+      ))}
+      {[10,25,45,65,85].map((left,i)=>(
+        <div key={i} className="sparkle"
+          style={{left:`${left}%`,top:`${15+i*13}%`,animationDelay:`${i*0.12}s`}}>✨</div>
+      ))}
+    </div>
+  );
+}
+
+// ── SHARED UI ─────────────────────────────────────────────────────────────────
+function ProgBar({ current, total, gradient='linear-gradient(90deg,#7c3aed,#ec4899)' }) {
+  return (
+    <div style={{background:'#e5e7eb',borderRadius:50,height:12,margin:'10px 0 22px',overflow:'hidden'}}>
+      <div style={{height:'100%',width:`${(current/total)*100}%`,background:gradient,borderRadius:50,transition:'width 0.4s ease'}}/>
+    </div>
+  );
+}
+function Feedback({ text, good }) {
+  if (!text) return <div style={{height:38}}/>;
+  return <div style={{marginTop:14,fontSize:'1.15rem',fontWeight:800,color:good?'#10b981':'#ef4444',minHeight:38}}>{text}</div>;
+}
+function BackBtn({ onMenu }) {
+  const [h,setH]=useState(false);
+  return (
+    <button onClick={onMenu} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
+      style={{border:'2px solid #7c3aed',color:h?'white':'#7c3aed',background:h?'#7c3aed':'white',
+        fontWeight:700,padding:'8px 20px',borderRadius:50,marginBottom:22,cursor:'pointer',fontSize:'1rem',transition:'all 0.2s'}}>
+      ← Back to Menu
+    </button>
+  );
+}
+function Card({ children }) {
+  return <div style={{background:'white',borderRadius:22,padding:'32px',boxShadow:'0 4px 20px rgba(124,58,237,0.14)',textAlign:'center'}}>{children}</div>;
+}
+function Btn({ onClick, color='#7c3aed', children, disabled=false }) {
+  const [h,setH]=useState(false);
+  return (
+    <button onClick={onClick} disabled={disabled} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
+      style={{padding:'12px 30px',borderRadius:50,fontSize:'1rem',fontWeight:800,border:'none',
+        cursor:disabled?'default':'pointer',color:'white',background:disabled?'#9ca3af':color,
+        boxShadow:disabled?'none':`0 4px 12px ${color}55`,transform:h&&!disabled?'translateY(-2px)':'none',transition:'all 0.2s'}}>
+      {children}
+    </button>
+  );
+}
+
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+function LoginScreen({ onLogin }) {
+  const [name,setName]     = useState('');
+  const [avatar,setAvatar] = useState('🧙');
+  const [loading,setLoading] = useState(false);
+  const [err,setErr]       = useState('');
+  const [recent,setRecent] = useState([]);
+  const [tab,setTab]       = useState('new'); // 'new' | 'recent'
+
+  // Load recently logged-in players from localStorage
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('ww_recent') || '[]');
+      setRecent(saved);
+      if (saved.length > 0) setTab('recent');
+    } catch {}
+  }, []);
+
+  async function loginWith(username, av) {
+    setLoading(true);
+    const player = await apiPost('/players', { username, avatar: av }) ||
+                   { PlayerId: null, Username: username, Avatar: av, offline: true };
+    // Save to recent list (top 5, most recent first, no duplicates)
+    try {
+      const entry = { Username: player.Username, Avatar: player.Avatar, PlayerId: player.PlayerId };
+      const prev  = JSON.parse(localStorage.getItem('ww_recent') || '[]');
+      const next  = [entry, ...prev.filter(p => p.Username !== entry.Username)].slice(0, 5);
+      localStorage.setItem('ww_recent', JSON.stringify(next));
+    } catch {}
+    setLoading(false);
+    onLogin(player);
+  }
+
+  async function submit(e) {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) { setErr('Please enter your name!'); return; }
+    await loginWith(trimmed, avatar);
+  }
+
+  const tabStyle = (t) => ({
+    flex:1, padding:'10px', fontWeight:700, fontSize:'0.95rem', border:'none',
+    borderBottom: tab===t ? '3px solid #7c3aed' : '3px solid transparent',
+    background:'transparent', color: tab===t ? '#7c3aed' : '#9ca3af',
+    cursor:'pointer', transition:'all 0.2s'
+  });
+
+  return (
+    <div style={{maxWidth:480,margin:'0 auto',padding:'40px 20px',textAlign:'center'}}>
+      <div className="pop-in" style={{background:'white',borderRadius:28,padding:'36px 32px',boxShadow:'0 8px 40px rgba(124,58,237,0.18)'}}>
+        <div style={{fontSize:'3.5rem',marginBottom:8}}>🧙</div>
+        <h2 style={{fontSize:'2rem',fontWeight:900,color:'#7c3aed',marginBottom:4}}>Word Wizards</h2>
+        <p style={{color:'#6b7280',marginBottom:20}}>Who's playing today?</p>
+
+        {/* Tabs */}
+        <div style={{display:'flex',borderBottom:'1px solid #e5e7eb',marginBottom:22}}>
+          <button style={tabStyle('new')}     onClick={()=>setTab('new')}>✨ New Player</button>
+          <button style={tabStyle('recent')}  onClick={()=>setTab('recent')} disabled={recent.length===0}>
+            🕐 Recent {recent.length>0 && `(${recent.length})`}
+          </button>
+        </div>
+
+        {/* Recent players */}
+        {tab==='recent' && (
+          <div>
+            {recent.length===0
+              ? <p style={{color:'#9ca3af',marginBottom:16}}>No recent players yet.</p>
+              : recent.map(p=>(
+                  <button key={p.Username} onClick={()=>loginWith(p.Username, p.Avatar)}
+                    disabled={loading}
+                    style={{width:'100%',display:'flex',alignItems:'center',gap:14,padding:'14px 18px',
+                      marginBottom:10,background:'#f9fafb',border:'2px solid #e5e7eb',borderRadius:14,
+                      cursor:'pointer',transition:'all 0.2s',textAlign:'left'}}
+                    onMouseEnter={e=>{e.currentTarget.style.borderColor='#7c3aed';e.currentTarget.style.background='#ede9fe';}}
+                    onMouseLeave={e=>{e.currentTarget.style.borderColor='#e5e7eb';e.currentTarget.style.background='#f9fafb';}}>
+                    <span style={{fontSize:'2rem'}}>{p.Avatar}</span>
+                    <span style={{fontWeight:700,fontSize:'1.05rem',color:'#1e1b4b'}}>{p.Username}</span>
+                    <span style={{marginLeft:'auto',fontSize:'0.85rem',color:'#7c3aed',fontWeight:600}}>
+                      {loading?'…':'▶ Play'}
+                    </span>
+                  </button>
+                ))
+            }
+            <p style={{marginTop:14,fontSize:'0.85rem',color:'#9ca3af'}}>
+              Not here? <button onClick={()=>setTab('new')} style={{background:'none',border:'none',color:'#7c3aed',fontWeight:700,cursor:'pointer'}}>Add new player</button>
+            </p>
+          </div>
+        )}
+
+        {/* New player form */}
+        {tab==='new' && (
+          <form onSubmit={submit}>
+            <input type="text" placeholder="Enter your name…" value={name} maxLength={30}
+              onChange={e=>{setName(e.target.value);setErr('');}}
+              style={{width:'100%',padding:'13px 16px',border:`2px solid ${name?'#7c3aed':'#e5e7eb'}`,borderRadius:12,
+                fontSize:'1.1rem',outline:'none',marginBottom:18,transition:'border 0.2s'}}/>
+            <p style={{fontWeight:700,color:'#374151',marginBottom:10}}>Pick your avatar:</p>
+            <div style={{display:'flex',flexWrap:'wrap',justifyContent:'center',gap:8,marginBottom:22}}>
+              {AVATARS.map(a=>(
+                <button key={a} type="button" onClick={()=>setAvatar(a)}
+                  style={{width:50,height:50,borderRadius:12,fontSize:'1.7rem',
+                    border:`3px solid ${a===avatar?'#7c3aed':'#e5e7eb'}`,
+                    background:a===avatar?'#ede9fe':'white',cursor:'pointer',transition:'all 0.15s',
+                    transform:a===avatar?'scale(1.12)':'scale(1)'}}>
+                  {a}
+                </button>
+              ))}
+            </div>
+            {err && <p style={{color:'#ef4444',fontWeight:700,marginBottom:10}}>{err}</p>}
+            <Btn onClick={submit} color="#7c3aed">{loading?'Loading…':`▶ Play as ${name||'…'} ${avatar}`}</Btn>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── PROGRESS DASHBOARD ────────────────────────────────────────────────────────
+const GAME_COLORS={letters:'#3b82f6',spell:'#10b981',trace:'#ec4899',story:'#d97706'};
+const GAME_ICONS ={letters:'🔤',spell:'🖊️',trace:'✍️',story:'📖'};
+
+function ProgressDashboard({ player, onBack }) {
+  const [data,setData]=useState(null);
+  const [loading,setLoading]=useState(true);
+
+  useEffect(()=>{
+    if(!player.PlayerId){setLoading(false);return;}
+    apiGet(`/progress/${player.PlayerId}`).then(d=>{setData(d);setLoading(false);});
+  },[]);
+
+  return (
+    <div style={{maxWidth:700,margin:'0 auto',padding:'28px 20px'}}>
+      <BackBtn onMenu={onBack}/>
+      <h2 style={{textAlign:'center',fontSize:'1.9rem',fontWeight:900,color:'#7c3aed',marginBottom:6}}>
+        {player.Avatar} {player.Username}'s Progress
+      </h2>
+
+      {loading && <p style={{textAlign:'center',color:'#6b7280',marginTop:40}}>Loading…</p>}
+
+      {!loading && (!data || player.offline) && (
+        <div style={{background:'white',borderRadius:20,padding:32,textAlign:'center',boxShadow:'0 4px 16px rgba(0,0,0,0.08)',marginTop:20}}>
+          <div style={{fontSize:'3rem',marginBottom:12}}>📡</div>
+          <p style={{color:'#6b7280',fontSize:'1rem',lineHeight:1.6}}>
+            Progress tracking needs the server running.<br/>
+            Open a terminal in this folder and run:<br/>
+            <code style={{background:'#f3f4f6',padding:'4px 10px',borderRadius:6,fontSize:'1rem',display:'inline-block',marginTop:8}}>
+              npm install &amp;&amp; node server.js
+            </code>
+          </p>
+        </div>
+      )}
+
+      {!loading && data && (
+        <>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:14,marginBottom:22,marginTop:14}}>
+            {data.summary.map(s=>(
+              <div key={s.GameType} className="slide-up"
+                style={{background:'white',borderRadius:16,padding:'18px 20px',
+                  boxShadow:'0 4px 14px rgba(0,0,0,0.07)',borderLeft:`5px solid ${GAME_COLORS[s.GameType]||'#7c3aed'}`}}>
+                <div style={{fontSize:'1.4rem',marginBottom:6}}>
+                  {GAME_ICONS[s.GameType]} <strong style={{color:GAME_COLORS[s.GameType]}}>{GAME_LABELS[s.GameType]}</strong>
+                </div>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.83rem',color:'#6b7280',marginBottom:6}}>
+                  <span>Best: <strong style={{color:'#1e1b4b'}}>{s.BestPct}%</strong></span>
+                  <span>Played: <strong style={{color:'#1e1b4b'}}>{s.TimesPlayed}×</strong></span>
+                </div>
+                <div className="prog-bar-outer" style={{marginBottom:8}}>
+                  <div className="prog-bar-inner" style={{width:`${s.BestPct}%`,background:GAME_COLORS[s.GameType]||'#7c3aed'}}/>
+                </div>
+                <div style={{fontSize:'0.83rem',fontWeight:700,color:s.ImprovementPct>0?'#10b981':'#f59e0b'}}>
+                  {s.ImprovementPct>0?`📈 +${parseFloat(s.ImprovementPct).toFixed(1)}% improvement!`:'💪 Keep practising!'}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{background:'white',borderRadius:16,padding:'22px',boxShadow:'0 4px 14px rgba(0,0,0,0.07)'}}>
+            <h3 style={{fontWeight:800,color:'#1e1b4b',marginBottom:14,fontSize:'1.05rem'}}>Recent Games</h3>
+            {data.sessions.length===0 && <p style={{color:'#9ca3af'}}>No games yet — go play!</p>}
+            {data.sessions.map((s,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'9px 0',
+                borderBottom:i<data.sessions.length-1?'1px solid #f3f4f6':'none'}}>
+                <span style={{fontSize:'1.3rem'}}>{GAME_ICONS[s.GameType]}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,color:'#374151',fontSize:'0.92rem'}}>{GAME_LABELS[s.GameType]}</div>
+                  <div style={{fontSize:'0.78rem',color:'#9ca3af'}}>{new Date(s.PlayedAt).toLocaleDateString()}</div>
+                </div>
+                <div style={{fontWeight:800,fontSize:'1.05rem',
+                  color:s.Pct>=80?'#10b981':s.Pct>=50?'#f59e0b':'#ef4444'}}>
+                  {s.Score}/{s.TotalQuestions}
+                  <span style={{fontSize:'0.78rem',fontWeight:500,marginLeft:4}}>({s.Pct}%)</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── WIN SCREEN ────────────────────────────────────────────────────────────────
+function WinScreen({ score, total, player, onReplay, onMenu }) {
+  const pct=Math.round(score/total*100);
+  const stars=pct>=90?'⭐⭐⭐':pct>=60?'⭐⭐':'⭐';
+  const title=pct>=90?'🎉 Brilliant!':pct>=60?'👏 Well done!':'💪 Keep practising!';
+  useEffect(()=>{SFX.win();},[]);
+  return (
+    <div style={{maxWidth:500,margin:'0 auto',padding:'40px 20px',textAlign:'center'}}>
+      <div className="pop-in" style={{background:'white',borderRadius:28,padding:'46px 32px',boxShadow:'0 8px 40px rgba(124,58,237,0.2)'}}>
+        <div style={{fontSize:'3.8rem',letterSpacing:8,marginBottom:12}}>{stars}</div>
+        <div style={{fontSize:'2rem',fontWeight:900,color:'#7c3aed',marginBottom:8}}>{title}</div>
+        <div style={{color:'#6b7280',marginBottom:6}}>
+          {player.Avatar} <strong>{player.Username}</strong> got{' '}
+          <strong>{score}</strong> / <strong>{total}</strong>
+        </div>
+        <div style={{fontSize:'2.2rem',fontWeight:900,marginBottom:26,
+          color:pct>=80?'#10b981':pct>=50?'#f59e0b':'#ef4444'}}>
+          {pct}%
+        </div>
+        <div style={{display:'flex',gap:14,justifyContent:'center',flexWrap:'wrap'}}>
+          <Btn onClick={onReplay} color="#10b981">🔄 Play Again</Btn>
+          <Btn onClick={onMenu}>🏠 Menu</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── MENU ──────────────────────────────────────────────────────────────────────
+function MenuScreen({ player, onStart, onProgress, onLogout }) {
+  const cards=[
+    {id:'letters',icon:'🔤',title:'Letter Match',  desc:'Match letters to words',        border:'#3b82f6',color:'#3b82f6'},
+    {id:'spell',  icon:'🖊️',title:'Spell It!',     desc:'Build words letter by letter',  border:'#10b981',color:'#10b981'},
+    {id:'trace',  icon:'✍️',title:'Trace & Write', desc:'Practise every letter',         border:'#ec4899',color:'#ec4899'},
+    {id:'story',  icon:'📖',title:'Story Builder', desc:'Put words in the right order',  border:'#f59e0b',color:'#d97706'},
+  ];
+  return (
+    <div style={{maxWidth:860,margin:'0 auto',padding:'34px 20px',textAlign:'center'}}>
+      <p style={{fontSize:'1.9rem',fontWeight:900,color:'#7c3aed',marginBottom:4}}>Choose your challenge!</p>
+      <p style={{color:'#6b7280',marginBottom:28}}>
+        Welcome back, {player.Avatar} <strong>{player.Username}</strong>!
+      </p>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:18,maxWidth:660,margin:'0 auto 26px'}}>
+        {cards.map(c=><MenuCard key={c.id} c={c} onStart={onStart}/>)}
+      </div>
+      <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}>
+        <Btn onClick={onProgress} color="#6d28d9">📊 My Progress</Btn>
+        <Btn onClick={onLogout}   color="#6b7280">🚪 Logout</Btn>
+      </div>
+    </div>
+  );
+}
+function MenuCard({ c, onStart }) {
+  const [h,setH]=useState(false);
+  return (
+    <div onClick={()=>onStart(c.id)} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
+      style={{background:'white',borderRadius:20,padding:'26px 16px',cursor:'pointer',
+        border:`3px solid ${c.border}`,
+        boxShadow:h?'0 12px 30px rgba(124,58,237,0.2)':'0 4px 18px rgba(124,58,237,0.1)',
+        transform:h?'translateY(-5px)':'none',transition:'all 0.2s'}}>
+      <div style={{fontSize:'3rem',marginBottom:10}}>{c.icon}</div>
+      <div style={{fontSize:'1.15rem',fontWeight:800,marginBottom:5,color:c.color}}>{c.title}</div>
+      <div style={{fontSize:'0.86rem',color:'#6b7280'}}>{c.desc}</div>
+    </div>
+  );
+}
+
+// ── LETTER MATCH ──────────────────────────────────────────────────────────────
+function LetterMatchGame({ player, onFinish, onMenu }) {
+  const [questions]             =useState(()=>shuffle(LETTER_DATA).slice(0,10));
+  const [qIdx,setQIdx]          =useState(0);
+  const [score,setScore]        =useState(0);
+  const [opts,setOpts]          =useState([]);
+  const [answered,setAnswered]  =useState(false);
+  const [chosen,setChosen]      =useState(null);
+  const [feedback,setFeedback]  =useState('');
+  const [celebrate,setCelebrate]=useState(false);
+  const scoreRef=useRef(0);
+
+  useEffect(()=>{
+    setOpts(shuffle(questions[qIdx].words));
+    setAnswered(false);setChosen(null);setFeedback('');
+  },[qIdx]);
+
+  const q=questions[qIdx];
+
+  function handleAnswer(word){
+    if(answered) return;
+    setAnswered(true);setChosen(word.w);
+    const ok=word.w[0].toUpperCase()===q.letter;
+    const ns=scoreRef.current+(ok?1:0);scoreRef.current=ns;
+    if(ok){
+      SFX.correct();SFX.ring();
+      setCelebrate(true);setTimeout(()=>setCelebrate(false),1500);
+      setFeedback('✅ Correct! Great job!');setScore(ns);
+    } else {
+      SFX.wrong();
+      setFeedback(`❌ "${word.w}" starts with "${word.w[0]}" — try next time!`);
+    }
+    setTimeout(()=>{ if(qIdx+1>=10) onFinish(ns,10); else setQIdx(i=>i+1); },1800);
+  }
+
+  function btnStyle(word){
+    const base={background:'white',border:'3px solid #e5e7eb',borderRadius:14,padding:'16px 10px',
+      fontWeight:700,cursor:answered?'default':'pointer',display:'flex',flexDirection:'column',
+      alignItems:'center',gap:7,fontSize:'0.95rem',transition:'all 0.2s',width:'100%'};
+    if(!answered) return base;
+    if(word.w[0].toUpperCase()===q.letter) return{...base,borderColor:'#10b981',background:'#d1fae5'};
+    if(word.w===chosen)                    return{...base,borderColor:'#ef4444',background:'#fee2e2'};
+    return base;
+  }
+
+  return (
+    <div style={{maxWidth:680,margin:'0 auto',padding:'28px 20px'}}>
+      <SonicCelebration active={celebrate}/>
+      <BackBtn onMenu={onMenu}/>
+      <h2 style={{textAlign:'center',fontSize:'1.9rem',fontWeight:900,color:'#3b82f6',marginBottom:6}}>🔤 Letter Match</h2>
+      <div style={{textAlign:'center',color:'#6b7280',marginBottom:4}}>Question {qIdx+1} of 10 | Score: {score}</div>
+      <ProgBar current={qIdx} total={10}/>
+      <Card>
+        <div style={{fontSize:'8.5rem',fontWeight:900,lineHeight:1,marginBottom:12,
+          background:'linear-gradient(135deg,#3b82f6,#7c3aed)',
+          WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>
+          {q.letter}
+        </div>
+        <p style={{color:'#4b5563',fontSize:'1.05rem',marginBottom:20}}>Which word starts with this letter?</p>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12,maxWidth:460,margin:'0 auto'}}>
+          {opts.map(word=>(
+            <button key={word.w} style={btnStyle(word)} onClick={()=>handleAnswer(word)} disabled={answered}>
+              <span style={{fontSize:'2.2rem'}}>{word.e}</span>
+              <span>{word.w}</span>
+            </button>
+          ))}
+        </div>
+        <Feedback text={feedback} good={feedback.startsWith('✅')}/>
+      </Card>
+    </div>
+  );
+}
+
+// ── SPELL IT ──────────────────────────────────────────────────────────────────
+function SpellItGame({ player, onFinish, onMenu }) {
+  const [words]                 =useState(()=>shuffle(SPELL_WORDS).slice(0,10));
+  const [qIdx,setQIdx]          =useState(0);
+  const [score,setScore]        =useState(0);
+  const [filled,setFilled]      =useState([]);
+  const [bank,setBank]          =useState([]);
+  const [used,setUsed]          =useState(new Set());
+  const [feedback,setFeedback]  =useState('');
+  const [shaking,setShaking]    =useState(false);
+  const [celebrate,setCelebrate]=useState(false);
+  const scoreRef=useRef(0);
+  const item=words[qIdx];
+
+  useEffect(()=>{
+    const extras=generateDistractors(item.word);
+    setBank(shuffle([...item.word.split(''),...extras]));
+    setFilled(Array(item.word.length).fill(null));
+    setUsed(new Set());setFeedback('');
+  },[qIdx]);
+
+  function addLetter(letter,idx){
+    if(used.has(idx)) return;
+    const fi=filled.indexOf(null);if(fi===-1) return;
+    const nf=[...filled];nf[fi]={letter,idx};
+    setFilled(nf);setUsed(p=>new Set([...p,idx]));
+  }
+  function removeLetter(i){
+    if(!filled[i]) return;
+    const {idx}=filled[i];
+    const nf=[...filled];nf[i]=null;setFilled(nf);
+    setUsed(p=>{const n=new Set(p);n.delete(idx);return n;});
+  }
+  const allFilled=filled.length>0&&!filled.includes(null);
+
+  function checkSpell(){
+    const ans=filled.map(f=>f?.letter||'').join('');
+    const ok=ans===item.word;
+    const ns=scoreRef.current+(ok?1:0);scoreRef.current=ns;
+    if(ok){
+      SFX.correct();SFX.ring();
+      setCelebrate(true);setTimeout(()=>setCelebrate(false),1500);
+      setFeedback('✅ Perfect spelling!');setScore(ns);
+    } else {
+      SFX.wrong();
+      setFeedback(`❌ The word is "${item.word}"`);
+      setShaking(true);setTimeout(()=>setShaking(false),400);
+    }
+    setTimeout(()=>{ if(qIdx+1>=10) onFinish(ns,10); else setQIdx(i=>i+1); },1800);
+  }
+
+  return (
+    <div style={{maxWidth:680,margin:'0 auto',padding:'28px 20px'}}>
+      <SonicCelebration active={celebrate}/>
+      <BackBtn onMenu={onMenu}/>
+      <h2 style={{textAlign:'center',fontSize:'1.9rem',fontWeight:900,color:'#10b981',marginBottom:6}}>🖊️ Spell It!</h2>
+      <div style={{textAlign:'center',color:'#6b7280',marginBottom:4}}>Word {qIdx+1} of 10 | Score: {score}</div>
+      <ProgBar current={qIdx} total={10} gradient="linear-gradient(90deg,#10b981,#3b82f6)"/>
+      <Card>
+        <div style={{fontSize:'5.5rem',marginBottom:8}}>{item.emoji}</div>
+        <p style={{color:'#6b7280',marginBottom:20}}>{item.hint}</p>
+        <div className={shaking?'shake':''} style={{display:'flex',justifyContent:'center',gap:10,flexWrap:'wrap',marginBottom:24}}>
+          {filled.map((entry,i)=>(
+            <div key={i} onClick={()=>removeLetter(i)}
+              style={{width:50,height:58,borderBottom:'4px solid #7c3aed',display:'flex',alignItems:'center',
+                justifyContent:'center',fontSize:'1.9rem',fontWeight:900,color:'#7c3aed',
+                cursor:entry?'pointer':'default',background:entry?'#ede9fe':'transparent',
+                borderRadius:'7px 7px 0 0',transition:'background 0.2s'}}>
+              {entry?.letter||''}
+            </div>
+          ))}
+        </div>
+        <div style={{display:'flex',justifyContent:'center',flexWrap:'wrap',gap:10,marginBottom:18}}>
+          {bank.map((letter,i)=>{
+            const u=used.has(i);
+            return (
+              <button key={i} onClick={()=>addLetter(letter,i)} disabled={u}
+                style={{width:48,height:48,borderRadius:11,fontSize:'1.35rem',fontWeight:900,border:'none',
+                  cursor:u?'default':'pointer',color:'white',background:u?'#c4b5fd':'#7c3aed',
+                  opacity:u?0.4:1,transform:u?'scale(0.88)':'scale(1)',
+                  boxShadow:u?'none':'0 3px 8px rgba(124,58,237,0.3)',transition:'all 0.15s'}}>
+                {letter}
+              </button>
+            );
+          })}
+        </div>
+        {allFilled && <Btn onClick={checkSpell}>Check ✓</Btn>}
+        <Feedback text={feedback} good={feedback.startsWith('✅')}/>
+      </Card>
+    </div>
+  );
+}
+
+// ── TRACE & WRITE ─────────────────────────────────────────────────────────────
+function TraceGame({ player, onMenu }) {
+  const [current,   setCurrent]    = useState('A');
+  const [traced,    setTraced]     = useState(new Set());
+  const [feedback,  setFeedback]   = useState('');
+  const [celebrate, setCelebrate]  = useState(false);
+  const [showMat,   setShowMat]    = useState(true);   // teach mat open by default
+  const canvasRef   = useRef(null);
+  const drawing     = useRef(false);
+  const lastPos     = useRef({x:0, y:0});
+  const strokeCount = useRef(0);
+  const animRef     = useRef(null);
+
+  const info = LETTER_INFO[current] || {};
+
+  // ── draw ruled lines + ghost letter ─────────────────────────────────────────
+  function drawGuide(letter) {
+    const c = canvasRef.current; if (!c) return;
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, c.width, c.height);
+
+    // Writing-book ruled lines
+    const lines = [c.height*0.13, c.height*0.46, c.height*0.73, c.height*0.89];
+    const styles= ['rgba(59,130,246,0.22)','rgba(59,130,246,0.12)','rgba(59,130,246,0.30)','rgba(59,130,246,0.10)'];
+    const dashes= [[],[6,4],[],[4,6]];
+    const widths= [1, 1, 1.5, 1];
+    lines.forEach((y,i)=>{
+      ctx.strokeStyle=styles[i]; ctx.lineWidth=widths[i]; ctx.setLineDash(dashes[i]);
+      ctx.beginPath(); ctx.moveTo(8,y); ctx.lineTo(c.width-8,y); ctx.stroke();
+    });
+    ctx.setLineDash([]);
+
+    // Ghost letter to trace over
+    ctx.font='bold 175px Arial,sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='rgba(236,72,153,0.10)';
+    ctx.fillText(letter, c.width/2, c.height/2+10);
+    ctx.strokeStyle='rgba(236,72,153,0.32)'; ctx.lineWidth=2;
+    ctx.setLineDash([7,5]); ctx.strokeText(letter, c.width/2, c.height/2+10);
+    ctx.setLineDash([]);
+  }
+
+  useEffect(()=>{
+    drawGuide(current);
+    strokeCount.current = 0;
+    if (animRef.current) cancelAnimationFrame(animRef.current);
+  }, [current]);
+
+  // ── Watch Me animation ───────────────────────────────────────────────────────
+  function watchMe() {
+    const c = canvasRef.current; if (!c) return;
+    const ctx = c.getContext('2d');
+    if (animRef.current) cancelAnimationFrame(animRef.current);
+    strokeCount.current = 0;
+    setFeedback('');
+
+    const letter   = current;
+    const start    = performance.now();
+    const duration = 2000;
+
+    function frame(now) {
+      const t    = Math.min((now - start) / duration, 1);
+      const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;   // ease in-out
+
+      ctx.clearRect(0, 0, c.width, c.height);
+      drawGuide(letter);
+
+      // Progressive clip: reveal the filled letter from top to bottom
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, c.width, c.height * ease + 8);
+      ctx.clip();
+      ctx.font = 'bold 175px Arial,sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(124,58,237,0.82)';
+      ctx.fillText(letter, c.width/2, c.height/2+10);
+      ctx.restore();
+
+      // Moving pink "pen" dot that follows the reveal
+      const penY = Math.min(c.height * ease + 4, c.height - 8);
+      ctx.beginPath();
+      ctx.arc(c.width/2, penY, 7, 0, Math.PI*2);
+      ctx.fillStyle = '#ec4899';
+      ctx.shadowColor = '#ec4899';
+      ctx.shadowBlur  = 10;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      if (t < 1) {
+        animRef.current = requestAnimationFrame(frame);
+      } else {
+        // Small pause then reset to blank guide for tracing
+        setTimeout(()=>{ drawGuide(letter); strokeCount.current=0; }, 700);
+      }
+    }
+    animRef.current = requestAnimationFrame(frame);
+  }
+
+  // ── Drawing handlers ─────────────────────────────────────────────────────────
+  function getPos(e,c){
+    const r=c.getBoundingClientRect(), src=e.touches?e.touches[0]:e;
+    return {x:(src.clientX-r.left)*(c.width/r.width), y:(src.clientY-r.top)*(c.height/r.height)};
+  }
+  function onDown(e){ e.preventDefault(); drawing.current=true; lastPos.current=getPos(e,canvasRef.current); }
+  function onMove(e){
+    e.preventDefault(); if(!drawing.current) return;
+    const c=canvasRef.current, ctx=c.getContext('2d'), pos=getPos(e,c);
+    ctx.strokeStyle='#7c3aed'; ctx.lineWidth=6; ctx.lineCap='round'; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(lastPos.current.x,lastPos.current.y); ctx.lineTo(pos.x,pos.y); ctx.stroke();
+    lastPos.current=pos;
+    strokeCount.current += 1;
+  }
+  function onUp(){ drawing.current=false; }
+
+  function clearCanvas(){
+    if(animRef.current) cancelAnimationFrame(animRef.current);
+    drawGuide(current);
+    strokeCount.current=0;
+  }
+
+  function markDone(){
+    if(strokeCount.current < 15){
+      SFX.wrong();
+      setFeedback('✏️ Draw the letter on the canvas first, then tap Done!');
+      return;
+    }
+    SFX.correct(); SFX.ring();
+    setCelebrate(true); setTimeout(()=>setCelebrate(false), 1500);
+    strokeCount.current=0;
+    const nt=new Set([...traced, current]); setTraced(nt);
+    if(nt.size===26){ setFeedback('🏆 You traced all 26 letters! Amazing!'); return; }
+    setFeedback(`✅ Great job writing "${current}"!`);
+    let next=(ALPHABET.indexOf(current)+1)%26;
+    while(nt.has(ALPHABET[next])) next=(next+1)%26;
+    setTimeout(()=>{ setCurrent(ALPHABET[next]); setFeedback(''); }, 900);
+  }
+
+  function selectLetter(letter){ setCurrent(letter); setFeedback(''); }
+
+  // ── Render ───────────────────────────────────────────────────────────────────
+  return (
+    <div style={{maxWidth:720,margin:'0 auto',padding:'28px 20px'}}>
+      <SonicCelebration active={celebrate}/>
+      <BackBtn onMenu={onMenu}/>
+      <h2 style={{textAlign:'center',fontSize:'1.9rem',fontWeight:900,color:'#ec4899',marginBottom:16}}>✍️ Trace &amp; Write</h2>
+
+      <div style={{background:'white',borderRadius:22,padding:'24px 28px',boxShadow:'0 4px 20px rgba(124,58,237,0.14)',textAlign:'center'}}>
+        {/* Letter picker */}
+        <div style={{display:'flex',flexWrap:'wrap',justifyContent:'center',gap:6,maxWidth:530,margin:'0 auto 16px'}}>
+          {ALPHABET.split('').map(letter=>{
+            const it=traced.has(letter), ic=letter===current;
+            return (
+              <button key={letter} onClick={()=>selectLetter(letter)}
+                style={{width:36,height:36,borderRadius:8,fontSize:'0.95rem',fontWeight:700,cursor:'pointer',
+                  border:`2px solid ${it?'#10b981':ic?'#ec4899':'#e5e7eb'}`,
+                  background:it?'#10b981':ic?'#ec4899':'#f9fafb',
+                  color:(it||ic)?'white':'#374151',transition:'all 0.15s'}}>
+                {letter}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Current letter label */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:14,marginBottom:12,flexWrap:'wrap'}}>
+          <div style={{color:'#6b7280',fontSize:'0.95rem'}}>
+            Now write: <strong style={{color:'#ec4899',fontSize:'1.35rem'}}>{current}</strong>
+            &nbsp;<span style={{fontSize:'0.82rem'}}>({traced.size}/26)</span>
+          </div>
+        </div>
+
+        {/* ── Teach Mat toggle bar — always visible ── */}
+        <div style={{borderTop:'2px solid #fde68a',borderBottom:'2px solid #fde68a',
+          margin:'0 -28px 16px',padding:'0'}}>
+          <button onClick={()=>setShowMat(m=>!m)}
+            style={{width:'100%',padding:'10px 20px',background:'#fefce8',border:'none',
+              cursor:'pointer',fontWeight:800,fontSize:'0.97rem',color:'#92400e',
+              display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+            📖 Teach Mat — Letter {current}
+            <span style={{fontSize:'0.8rem',opacity:0.7}}>{showMat?'▲ hide':'▼ show'}</span>
+          </button>
+        </div>
+
+        {/* ── Teach Mat content ── */}
+        {showMat && (
+          <div style={{background:'#fefce8',borderRadius:16,padding:'16px 18px',
+            marginBottom:16,textAlign:'left',border:'1px solid #fde68a'}}>
+
+            <div style={{display:'flex',gap:18,alignItems:'center',flexWrap:'wrap'}}>
+              {/* Big letter display: upper + lower */}
+              <div style={{background:'white',borderRadius:14,padding:'10px 18px',
+                boxShadow:'0 2px 8px rgba(0,0,0,0.07)',minWidth:90,textAlign:'center'}}>
+                <div style={{fontSize:'3.6rem',fontWeight:900,color:'#7c3aed',lineHeight:1}}>{current}</div>
+                <div style={{fontSize:'2.8rem',fontWeight:900,color:'#ec4899',lineHeight:1}}>{info.lower}</div>
+                <div style={{fontSize:'0.7rem',color:'#9ca3af',marginTop:4}}>UPPER / lower</div>
+              </div>
+
+              <div style={{flex:1,minWidth:180}}>
+                {/* Example word */}
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+                  <span style={{fontSize:'2rem'}}>{info.emoji}</span>
+                  <div>
+                    <div style={{fontWeight:800,fontSize:'1.1rem',color:'#1e1b4b'}}>{info.word}</div>
+                    <div style={{fontSize:'0.8rem',color:'#6b7280'}}>starts with <strong style={{color:'#7c3aed'}}>{current}</strong></div>
+                  </div>
+                </div>
+                {/* Stroke tip */}
+                <div style={{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:10,
+                  padding:'8px 12px',fontSize:'0.88rem',color:'#92400e',lineHeight:1.5}}>
+                  ✏️ {info.tip}
+                </div>
+              </div>
+            </div>
+
+            {/* Watch Me button */}
+            <button onClick={watchMe}
+              style={{marginTop:14,padding:'9px 22px',borderRadius:50,fontWeight:700,fontSize:'0.9rem',
+                border:'none',cursor:'pointer',background:'linear-gradient(135deg,#ec4899,#8b5cf6)',
+                color:'white',boxShadow:'0 3px 10px rgba(236,72,153,0.35)'}}>
+              🎬 Watch Me Write {current}
+            </button>
+          </div>
+        )}
+
+        {/* Canvas */}
+        <canvas ref={canvasRef} width={340} height={260}
+          style={{border:'3px solid #ec4899',borderRadius:18,cursor:'crosshair',touchAction:'none',maxWidth:'100%'}}
+          onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
+          onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}/>
+
+        {/* Buttons */}
+        <div style={{display:'flex',gap:10,justifyContent:'center',marginTop:14,flexWrap:'wrap'}}>
+          <button onClick={clearCanvas}
+            style={{padding:'10px 20px',borderRadius:50,fontWeight:700,background:'#f3f4f6',border:'none',cursor:'pointer',fontSize:'0.92rem'}}>
+            🗑️ Clear
+          </button>
+          <button onClick={()=>{ clearCanvas(); watchMe(); }}
+            style={{padding:'10px 20px',borderRadius:50,fontWeight:700,fontSize:'0.92rem',border:'none',cursor:'pointer',
+              background:'linear-gradient(135deg,#ec4899,#8b5cf6)',color:'white',boxShadow:'0 3px 10px rgba(236,72,153,0.3)'}}>
+            🎬 Watch Me
+          </button>
+          <button onClick={markDone}
+            style={{padding:'10px 20px',borderRadius:50,fontWeight:700,background:'#10b981',color:'white',border:'none',cursor:'pointer',fontSize:'0.92rem',boxShadow:'0 3px 10px rgba(16,185,129,0.35)'}}>
+            ✅ Done!
+          </button>
+        </div>
+
+        <div style={{marginTop:12,fontSize:'0.82rem',color:'#9ca3af'}}>
+          Green = practised ✅ &nbsp;|&nbsp; Use "Watch Me" to see how to write a letter
+        </div>
+        <Feedback text={feedback} good={feedback.startsWith('✅')||feedback.startsWith('🏆')}/>
+      </div>
+    </div>
+  );
+}
+
+// ── STORY BUILDER ─────────────────────────────────────────────────────────────
+function StoryBuilderGame({ player, onFinish, onMenu }) {
+  const [sentences]             =useState(()=>shuffle(STORY_DATA).slice(0,8));
+  const [qIdx,setQIdx]          =useState(0);
+  const [score,setScore]        =useState(0);
+  const [scrambled,setScrambled]=useState([]);
+  const [placedIds,setPlacedIds]=useState([]);
+  const [feedback,setFeedback]  =useState('');
+  const [celebrate,setCelebrate]=useState(false);
+  const scoreRef=useRef(0);
+
+  useEffect(()=>{
+    setScrambled(shuffle(sentences[qIdx].map((w,i)=>({word:w,id:i}))));
+    setPlacedIds([]);setFeedback('');
+  },[qIdx]);
+
+  const target=sentences[qIdx];
+  const placedSet=new Set(placedIds);
+  const bankItems=scrambled.filter(item=>!placedSet.has(item.id));
+  const placedItems=placedIds.map(id=>scrambled.find(item=>item.id===id));
+
+  function check(){
+    if(placedIds.length<target.length){setFeedback('🤔 Use all the words first!');return;}
+    const ans=placedItems.map(item=>item.word).join(' ');
+    const ok=ans===target.join(' ');
+    const ns=scoreRef.current+(ok?1:0);scoreRef.current=ns;
+    if(ok){
+      SFX.correct();SFX.ring();
+      setCelebrate(true);setTimeout(()=>setCelebrate(false),1500);
+      setFeedback('✅ Perfect sentence!');setScore(ns);
+    } else {
+      SFX.wrong();
+      setFeedback(`❌ Correct: "${target.join(' ')}"`);
+    }
+    setTimeout(()=>{ if(qIdx+1>=8) onFinish(ns,8); else setQIdx(i=>i+1); },2200);
+  }
+
+  return (
+    <div style={{maxWidth:680,margin:'0 auto',padding:'28px 20px'}}>
+      <SonicCelebration active={celebrate}/>
+      <BackBtn onMenu={onMenu}/>
+      <h2 style={{textAlign:'center',fontSize:'1.9rem',fontWeight:900,color:'#d97706',marginBottom:6}}>📖 Story Builder</h2>
+      <div style={{textAlign:'center',color:'#6b7280',marginBottom:4}}>Sentence {qIdx+1} of 8 | Score: {score}</div>
+      <ProgBar current={qIdx} total={8} gradient="linear-gradient(90deg,#f59e0b,#ef4444)"/>
+      <Card>
+        <p style={{color:'#4b5563',marginBottom:18}}>Put the words in the right order! 🧩</p>
+        <div style={{minHeight:62,borderRadius:14,padding:'12px 16px',marginBottom:20,
+          display:'flex',flexWrap:'wrap',gap:10,alignItems:'center',justifyContent:'center',
+          background:placedItems.length?'#fef3c7':'#f9fafb',
+          border:`2px ${placedItems.length?'solid':'dashed'} ${placedItems.length?'#f59e0b':'#d1d5db'}`,transition:'all 0.25s'}}>
+          {!placedItems.length&&<span style={{color:'#9ca3af',fontSize:'0.92rem'}}>Tap words below to build your sentence…</span>}
+          {placedItems.map(item=>(
+            <WordChip key={item.id} word={item.word} inSentence onClick={()=>setPlacedIds(p=>p.filter(i=>i!==item.id))}/>
+          ))}
+        </div>
+        <div style={{display:'flex',flexWrap:'wrap',gap:10,justifyContent:'center',marginBottom:20,minHeight:46}}>
+          {bankItems.map(item=>(
+            <WordChip key={item.id} word={item.word} onClick={()=>setPlacedIds(p=>[...p,item.id])}/>
+          ))}
+        </div>
+        <Btn onClick={check} color="#d97706">Check ✓</Btn>
+        <Feedback text={feedback} good={feedback.startsWith('✅')}/>
+      </Card>
+    </div>
+  );
+}
+function WordChip({word,inSentence,onClick}){
+  const [h,setH]=useState(false);
+  return(
+    <button onClick={onClick} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
+      style={{padding:'9px 16px',borderRadius:50,fontSize:'1.05rem',fontWeight:700,border:'none',cursor:'pointer',transition:'all 0.15s',
+        background:inSentence?(h?'#3730a3':'#1e1b4b'):(h?'#d97706':'#f59e0b'),
+        color:inSentence?'white':'#1e1b4b',
+        boxShadow:inSentence?'0 3px 8px rgba(30,27,75,0.2)':'0 3px 8px rgba(245,158,11,0.3)',
+        transform:h?'scale(1.07)':'scale(1)'}}>
+      {word}
+    </button>
+  );
+}
+
+// ── ROOT APP ──────────────────────────────────────────────────────────────────
+function LogoutButton({ onLogout }) {
+  const [confirming, setConfirming] = useState(false);
+  if (confirming) return (
+    <div style={{display:'flex',alignItems:'center',gap:8}}>
+      <span style={{color:'rgba(255,255,255,0.9)',fontSize:'0.85rem',fontWeight:600}}>Log out?</span>
+      <button onClick={onLogout}
+        style={{padding:'5px 14px',borderRadius:50,fontWeight:700,fontSize:'0.85rem',border:'2px solid white',
+          background:'white',color:'#ef4444',cursor:'pointer'}}>
+        Yes
+      </button>
+      <button onClick={()=>setConfirming(false)}
+        style={{padding:'5px 14px',borderRadius:50,fontWeight:700,fontSize:'0.85rem',border:'2px solid rgba(255,255,255,0.5)',
+          background:'transparent',color:'white',cursor:'pointer'}}>
+        No
+      </button>
+    </div>
+  );
+  return (
+    <button onClick={()=>setConfirming(true)}
+      style={{padding:'6px 16px',borderRadius:50,fontWeight:700,fontSize:'0.88rem',
+        border:'2px solid rgba(255,255,255,0.5)',background:'transparent',color:'white',
+        cursor:'pointer',transition:'all 0.2s'}}
+      onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,0.15)';}}
+      onMouseLeave={e=>{e.currentTarget.style.background='transparent';}}>
+      🚪 Logout
+    </button>
+  );
+}
+
+function App() {
+  const [screen,setScreen]   = useState('login');
+  const [player,setPlayer]   = useState(null);
+  const [stars,setStars]     = useState(0);
+  const [winData,setWinData] = useState({score:0,total:10,game:''});
+
+  // Restore session from localStorage on first load
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('ww_session');
+      if (saved) { setPlayer(JSON.parse(saved)); setScreen('menu'); }
+    } catch {}
+  }, []);
+
+  function handleLogin(p) {
+    try { localStorage.setItem('ww_session', JSON.stringify(p)); } catch {}
+    setPlayer(p);
+    setStars(0);
+    setScreen('menu');
+  }
+
+  function logout() {
+    try { localStorage.removeItem('ww_session'); } catch {}
+    setPlayer(null);
+    setStars(0);
+    setScreen('login');
+  }
+
+  async function handleWin(score, total) {
+    setStars(s=>s+score);
+    if (player?.PlayerId) {
+      await apiPost('/scores',{playerId:player.PlayerId,gameType:screen,score,totalQuestions:total});
+    }
+    setWinData({score,total,game:screen});
+    setScreen('win');
+  }
+
+  const cp = { player, onMenu:()=>setScreen('menu'), onFinish:handleWin };
+
+  return (
+    <div style={{minHeight:'100vh',background:'#f0f4ff'}}>
+      {player && (
+        <header style={{background:'linear-gradient(135deg,#7c3aed,#4f46e5)',padding:'13px 22px',
+          display:'flex',alignItems:'center',justifyContent:'space-between',boxShadow:'0 4px 12px rgba(0,0,0,0.2)',
+          gap:12,flexWrap:'wrap'}}>
+          <h1 style={{color:'white',fontSize:'1.6rem',fontWeight:900,letterSpacing:1}}>🧙 Word Wizards</h1>
+          <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+            <span style={{color:'rgba(255,255,255,0.9)',fontWeight:700,fontSize:'0.95rem'}}>
+              {player.Avatar} {player.Username}
+            </span>
+            <div style={{background:'#f59e0b',color:'#1e1b4b',fontWeight:800,fontSize:'1rem',
+              padding:'6px 14px',borderRadius:50,display:'flex',alignItems:'center',gap:4,boxShadow:'0 3px 8px rgba(0,0,0,0.2)'}}>
+              ⭐ {stars}
+            </div>
+            <LogoutButton onLogout={logout}/>
+          </div>
+        </header>
+      )}
+      {screen==='login'    && <LoginScreen onLogin={handleLogin}/>}
+      {screen==='menu'     && <MenuScreen player={player} onStart={setScreen} onProgress={()=>setScreen('progress')} onLogout={logout}/>}
+      {screen==='progress' && <ProgressDashboard player={player} onBack={()=>setScreen('menu')}/>}
+      {screen==='letters'  && <LetterMatchGame  {...cp}/>}
+      {screen==='spell'    && <SpellItGame      {...cp}/>}
+      {screen==='trace'    && <TraceGame player={player} onMenu={()=>setScreen('menu')}/>}
+      {screen==='story'    && <StoryBuilderGame {...cp}/>}
+      {screen==='win'      && <WinScreen {...winData} player={player} onReplay={()=>setScreen(winData.game)} onMenu={()=>setScreen('menu')}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
