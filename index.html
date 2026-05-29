@@ -694,11 +694,36 @@ function TraceGame({ player, onMenu }) {
   const [feedback,  setFeedback]   = useState('');
   const [celebrate, setCelebrate]  = useState(false);
   const [showMat,   setShowMat]    = useState(true);   // teach mat open by default
-  const canvasRef   = useRef(null);
-  const drawing     = useRef(false);
-  const lastPos     = useRef({x:0, y:0});
-  const strokeCount = useRef(0);
-  const animRef     = useRef(null);
+  const canvasRef      = useRef(null);
+  const drawing        = useRef(false);
+  const lastPos        = useRef({x:0, y:0});
+  const strokeCount    = useRef(0);
+  const animRef        = useRef(null);
+  const guideCellsRef  = useRef(new Set()); // grid cells occupied by guide letter
+  const hitCellsRef    = useRef(new Set()); // guide cells the user's pen crossed
+
+  const CELL = 10; // px per grid cell for coverage check
+
+  function buildGuideCells(letter, width, height) {
+    const off = document.createElement('canvas');
+    off.width = width; off.height = height;
+    const ctx = off.getContext('2d');
+    ctx.clearRect(0,0,width,height);
+    ctx.font = 'bold 175px Arial,sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'black';
+    ctx.fillText(letter, width/2, height/2+10);
+    const data = ctx.getImageData(0,0,width,height).data;
+    const cells = new Set();
+    for (let y=0; y<height; y++) {
+      for (let x=0; x<width; x++) {
+        if (data[(y*width+x)*4+3] > 40) {
+          cells.add(`${Math.floor(x/CELL)},${Math.floor(y/CELL)}`);
+        }
+      }
+    }
+    return cells;
+  }
 
   const info = LETTER_INFO[current] || {};
 
@@ -732,7 +757,12 @@ function TraceGame({ player, onMenu }) {
   useEffect(()=>{
     drawGuide(current);
     strokeCount.current = 0;
+    hitCellsRef.current = new Set();
     if (animRef.current) cancelAnimationFrame(animRef.current);
+    if (canvasRef.current) {
+      const c = canvasRef.current;
+      guideCellsRef.current = buildGuideCells(current, c.width, c.height);
+    }
   }, [current]);
 
   // ── Watch Me animation ───────────────────────────────────────────────────────
@@ -779,7 +809,7 @@ function TraceGame({ player, onMenu }) {
         animRef.current = requestAnimationFrame(frame);
       } else {
         // Small pause then reset to blank guide for tracing
-        setTimeout(()=>{ drawGuide(letter); strokeCount.current=0; }, 700);
+        setTimeout(()=>{ drawGuide(letter); strokeCount.current=0; hitCellsRef.current=new Set(); }, 700);
       }
     }
     animRef.current = requestAnimationFrame(frame);
@@ -798,6 +828,10 @@ function TraceGame({ player, onMenu }) {
     ctx.beginPath(); ctx.moveTo(lastPos.current.x,lastPos.current.y); ctx.lineTo(pos.x,pos.y); ctx.stroke();
     lastPos.current=pos;
     strokeCount.current += 1;
+    // Track coverage: mark any guide cells the pen passes through
+    const cx = Math.floor(pos.x/CELL), cy = Math.floor(pos.y/CELL);
+    const key = `${cx},${cy}`;
+    if (guideCellsRef.current.has(key)) hitCellsRef.current.add(key);
   }
   function onUp(){ drawing.current=false; }
 
@@ -805,12 +839,21 @@ function TraceGame({ player, onMenu }) {
     if(animRef.current) cancelAnimationFrame(animRef.current);
     drawGuide(current);
     strokeCount.current=0;
+    hitCellsRef.current=new Set();
   }
 
   function markDone(){
     if(strokeCount.current < 15){
       SFX.wrong();
       setFeedback('✏️ Draw the letter on the canvas first, then tap Done!');
+      return;
+    }
+    const total = guideCellsRef.current.size;
+    const hit   = hitCellsRef.current.size;
+    const pct   = total > 0 ? hit / total : 0;
+    if(pct < 0.38){
+      SFX.wrong();
+      setFeedback(`✏️ Try to trace ON the letter! You covered ${Math.round(pct*100)}% — aim for 38%+`);
       return;
     }
     SFX.correct(); SFX.ring();
