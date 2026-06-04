@@ -100,28 +100,31 @@ async function apiGet(path) {
 }
 
 // ── DATA ──────────────────────────────────────────────────────────────────────
+// FIX: Each letter's word list now contains exactly ONE correct answer (starts with that letter)
+// plus three distractors that do NOT start with that letter.
 const LETTER_DATA = [
   {letter:'A',words:[{w:'Apple',e:'🍎'},{w:'Dog',e:'🐶'},{w:'Fish',e:'🐟'},{w:'Hat',e:'🎩'}]},
-  {letter:'B',words:[{w:'Cat',e:'🐱'},{w:'Banana',e:'🍌'},{w:'Hat',e:'🎩'},{w:'Rain',e:'🌧️'}]},
-  {letter:'C',words:[{w:'Apple',e:'🍎'},{w:'Dog',e:'🐶'},{w:'Cake',e:'🎂'},{w:'Fish',e:'🐟'}]},
-  {letter:'D',words:[{w:'Cat',e:'🐱'},{w:'Fish',e:'🐟'},{w:'Dog',e:'🐶'},{w:'Rain',e:'🌧️'}]},
+  {letter:'B',words:[{w:'Banana',e:'🍌'},{w:'Cat',e:'🐱'},{w:'Apple',e:'🍎'},{w:'Rain',e:'🌧️'}]},
+  {letter:'C',words:[{w:'Cake',e:'🎂'},{w:'Apple',e:'🍎'},{w:'Dog',e:'🐶'},{w:'Fish',e:'🐟'}]},
+  {letter:'D',words:[{w:'Dog',e:'🐶'},{w:'Cat',e:'🐱'},{w:'Fish',e:'🐟'},{w:'Rain',e:'🌧️'}]},
   {letter:'E',words:[{w:'Egg',e:'🥚'},{w:'Apple',e:'🍎'},{w:'Frog',e:'🐸'},{w:'Hat',e:'🎩'}]},
-  {letter:'F',words:[{w:'Star',e:'⭐'},{w:'Cat',e:'🐱'},{w:'Fish',e:'🐟'},{w:'Rain',e:'🌧️'}]},
-  {letter:'G',words:[{w:'Hat',e:'🎩'},{w:'Grapes',e:'🍇'},{w:'Dog',e:'🐶'},{w:'Moon',e:'🌙'}]},
+  {letter:'F',words:[{w:'Fish',e:'🐟'},{w:'Star',e:'⭐'},{w:'Cat',e:'🐱'},{w:'Rain',e:'🌧️'}]},
+  {letter:'G',words:[{w:'Grapes',e:'🍇'},{w:'Hat',e:'🎩'},{w:'Dog',e:'🐶'},{w:'Moon',e:'🌙'}]},
   {letter:'H',words:[{w:'Horse',e:'🐴'},{w:'Cat',e:'🐱'},{w:'Fish',e:'🐟'},{w:'Egg',e:'🥚'}]},
-  {letter:'I',words:[{w:'Dog',e:'🐶'},{w:'Cat',e:'🐱'},{w:'Ice',e:'🧊'},{w:'Apple',e:'🍎'}]},
-  {letter:'J',words:[{w:'Ball',e:'⚽'},{w:'Star',e:'⭐'},{w:'Rain',e:'🌧️'},{w:'Jam',e:'🫙'}]},
+  {letter:'I',words:[{w:'Ice',e:'🧊'},{w:'Dog',e:'🐶'},{w:'Cat',e:'🐱'},{w:'Apple',e:'🍎'}]},
+  {letter:'J',words:[{w:'Jam',e:'🫙'},{w:'Ball',e:'⚽'},{w:'Star',e:'⭐'},{w:'Rain',e:'🌧️'}]},
   {letter:'K',words:[{w:'Kite',e:'🪁'},{w:'Lion',e:'🦁'},{w:'Dog',e:'🐶'},{w:'Fish',e:'🐟'}]},
-  {letter:'L',words:[{w:'Apple',e:'🍎'},{w:'Lion',e:'🦁'},{w:'Hat',e:'🎩'},{w:'Fish',e:'🐟'}]},
-  {letter:'M',words:[{w:'Dog',e:'🐶'},{w:'Cat',e:'🐱'},{w:'Moon',e:'🌙'},{w:'Hat',e:'🎩'}]},
+  {letter:'L',words:[{w:'Lion',e:'🦁'},{w:'Apple',e:'🍎'},{w:'Hat',e:'🎩'},{w:'Fish',e:'🐟'}]},
+  {letter:'M',words:[{w:'Moon',e:'🌙'},{w:'Dog',e:'🐶'},{w:'Cat',e:'🐱'},{w:'Hat',e:'🎩'}]},
   {letter:'N',words:[{w:'Nest',e:'🪺'},{w:'Orange',e:'🍊'},{w:'Pig',e:'🐷'},{w:'Cat',e:'🐱'}]},
-  {letter:'O',words:[{w:'Apple',e:'🍎'},{w:'Orange',e:'🍊'},{w:'Fish',e:'🐟'},{w:'Hat',e:'🎩'}]},
-  {letter:'P',words:[{w:'Dog',e:'🐶'},{w:'Pig',e:'🐷'},{w:'Star',e:'⭐'},{w:'Fish',e:'🐟'}]},
+  {letter:'O',words:[{w:'Orange',e:'🍊'},{w:'Apple',e:'🍎'},{w:'Fish',e:'🐟'},{w:'Hat',e:'🎩'}]},
+  {letter:'P',words:[{w:'Pig',e:'🐷'},{w:'Dog',e:'🐶'},{w:'Star',e:'⭐'},{w:'Fish',e:'🐟'}]},
   {letter:'R',words:[{w:'Rain',e:'🌧️'},{w:'Dog',e:'🐶'},{w:'Ship',e:'🚢'},{w:'Fish',e:'🐟'}]},
-  {letter:'S',words:[{w:'Dog',e:'🐶'},{w:'Moon',e:'🌙'},{w:'Star',e:'⭐'},{w:'Hat',e:'🎩'}]},
-  {letter:'T',words:[{w:'Dog',e:'🐶'},{w:'Tree',e:'🌳'},{w:'Fish',e:'🐟'},{w:'Cat',e:'🐱'}]},
+  {letter:'S',words:[{w:'Star',e:'⭐'},{w:'Dog',e:'🐶'},{w:'Moon',e:'🌙'},{w:'Hat',e:'🎩'}]},
+  {letter:'T',words:[{w:'Tree',e:'🌳'},{w:'Dog',e:'🐶'},{w:'Fish',e:'🐟'},{w:'Cat',e:'🐱'}]},
   {letter:'W',words:[{w:'Whale',e:'🐳'},{w:'Dog',e:'🐶'},{w:'Cat',e:'🐱'},{w:'Fish',e:'🐟'}]},
 ];
+
 const SPELL_WORDS = [
   {word:'CAT',emoji:'🐱',hint:'A furry pet that says meow'},
   {word:'DOG',emoji:'🐶',hint:'A loyal four-legged friend'},
@@ -149,7 +152,41 @@ const STORY_DATA = [
   ['He','jumped','over','the','big','puddle.'],
   ['We','play','games','at','school.'],
 ];
-const GAME_LABELS = {letters:'Letter Match',spell:'Spell It!',trace:'Trace & Write',story:'Story Builder'};
+
+// ── MATH DATA ─────────────────────────────────────────────────────────────────
+// Addition & subtraction questions, answers 0–20
+function generateMathQuestions(count = 10) {
+  const qs = [];
+  const used = new Set();
+  while (qs.length < count) {
+    const op = Math.random() < 0.5 ? '+' : '-';
+    let a, b, answer;
+    if (op === '+') {
+      a = Math.floor(Math.random() * 11);       // 0–10
+      b = Math.floor(Math.random() * (11 - a)); // ensures sum ≤ 10
+      answer = a + b;
+    } else {
+      a = Math.floor(Math.random() * 11);        // 0–10
+      b = Math.floor(Math.random() * (a + 1));   // ensures no negatives
+      answer = a - b;
+    }
+    const key = `${a}${op}${b}`;
+    if (used.has(key)) continue;
+    used.add(key);
+    // Generate 3 wrong choices close to the right answer
+    const wrongs = new Set();
+    while (wrongs.size < 3) {
+      const delta = Math.floor(Math.random() * 5) + 1;
+      const w = answer + (Math.random() < 0.5 ? delta : -delta);
+      if (w >= 0 && w <= 20 && w !== answer) wrongs.add(w);
+    }
+    const choices = shuffle([answer, ...wrongs]);
+    qs.push({ a, b, op, answer, choices });
+  }
+  return qs;
+}
+
+const GAME_LABELS = {letters:'Letter Match',spell:'Spell It!',trace:'Trace & Write',story:'Story Builder',math:'Math Magic'};
 const AVATARS = ['🧙','🦸','🧚','🐸','🦊','🐼','🦁','🐙'];
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -260,9 +297,8 @@ function LoginScreen({ onLogin }) {
   const [loading,setLoading] = useState(false);
   const [err,setErr]       = useState('');
   const [recent,setRecent] = useState([]);
-  const [tab,setTab]       = useState('new'); // 'new' | 'recent'
+  const [tab,setTab]       = useState('new');
 
-  // Load recently logged-in players from localStorage
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('ww_recent') || '[]');
@@ -275,7 +311,6 @@ function LoginScreen({ onLogin }) {
     setLoading(true);
     const player = await apiPost('/players', { username, avatar: av }) ||
                    { PlayerId: null, Username: username, Avatar: av, offline: true };
-    // Save to recent list (top 5, most recent first, no duplicates)
     try {
       const entry = { Username: player.Username, Avatar: player.Avatar, PlayerId: player.PlayerId };
       const prev  = JSON.parse(localStorage.getItem('ww_recent') || '[]');
@@ -286,11 +321,13 @@ function LoginScreen({ onLogin }) {
     onLogin(player);
   }
 
-  async function submit(e) {
+  // FIX: removed duplicate onClick on the button — form's onSubmit handles submission.
+  // The Btn component's onClick was also firing, causing double-submit.
+  function handleSubmit(e) {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) { setErr('Please enter your name!'); return; }
-    await loginWith(trimmed, avatar);
+    loginWith(trimmed, avatar);
   }
 
   const tabStyle = (t) => ({
@@ -307,7 +344,6 @@ function LoginScreen({ onLogin }) {
         <h2 style={{fontSize:'2rem',fontWeight:900,color:'#7c3aed',marginBottom:4}}>Word Wizards</h2>
         <p style={{color:'#6b7280',marginBottom:20}}>Who's playing today?</p>
 
-        {/* Tabs */}
         <div style={{display:'flex',borderBottom:'1px solid #e5e7eb',marginBottom:22}}>
           <button style={tabStyle('new')}     onClick={()=>setTab('new')}>✨ New Player</button>
           <button style={tabStyle('recent')}  onClick={()=>setTab('recent')} disabled={recent.length===0}>
@@ -315,7 +351,6 @@ function LoginScreen({ onLogin }) {
           </button>
         </div>
 
-        {/* Recent players */}
         {tab==='recent' && (
           <div>
             {recent.length===0
@@ -342,9 +377,9 @@ function LoginScreen({ onLogin }) {
           </div>
         )}
 
-        {/* New player form */}
         {tab==='new' && (
-          <form onSubmit={submit}>
+          // FIX: form uses onSubmit only; the submit button is type="submit" with no onClick
+          <form onSubmit={handleSubmit}>
             <input type="text" placeholder="Enter your name…" value={name} maxLength={30}
               onChange={e=>{setName(e.target.value);setErr('');}}
               style={{width:'100%',padding:'13px 16px',border:`2px solid ${name?'#7c3aed':'#e5e7eb'}`,borderRadius:12,
@@ -362,7 +397,12 @@ function LoginScreen({ onLogin }) {
               ))}
             </div>
             {err && <p style={{color:'#ef4444',fontWeight:700,marginBottom:10}}>{err}</p>}
-            <Btn onClick={submit} color="#7c3aed">{loading?'Loading…':`▶ Play as ${name||'…'} ${avatar}`}</Btn>
+            <button type="submit" disabled={loading}
+              style={{padding:'12px 30px',borderRadius:50,fontSize:'1rem',fontWeight:800,border:'none',
+                cursor:loading?'default':'pointer',color:'white',background:loading?'#9ca3af':'#7c3aed',
+                boxShadow:loading?'none':'0 4px 12px #7c3aed55',transition:'all 0.2s'}}>
+              {loading?'Loading…':`▶ Play as ${name||'…'} ${avatar}`}
+            </button>
           </form>
         )}
       </div>
@@ -371,8 +411,8 @@ function LoginScreen({ onLogin }) {
 }
 
 // ── PROGRESS DASHBOARD ────────────────────────────────────────────────────────
-const GAME_COLORS={letters:'#3b82f6',spell:'#10b981',trace:'#ec4899',story:'#d97706'};
-const GAME_ICONS ={letters:'🔤',spell:'🖊️',trace:'✍️',story:'📖'};
+const GAME_COLORS={letters:'#3b82f6',spell:'#10b981',trace:'#ec4899',story:'#d97706',math:'#8b5cf6'};
+const GAME_ICONS ={letters:'🔤',spell:'🖊️',trace:'✍️',story:'📖',math:'🔢'};
 
 function ProgressDashboard({ player, onBack }) {
   const [data,setData]=useState(null);
@@ -455,7 +495,7 @@ function ProgressDashboard({ player, onBack }) {
 }
 
 // ── WIN SCREEN ────────────────────────────────────────────────────────────────
-function WinScreen({ score, total, player, onReplay, onMenu }) {
+function WinScreen({ score, total, game, player, onReplay, onMenu }) {
   const pct=Math.round(score/total*100);
   const stars=pct>=90?'⭐⭐⭐':pct>=60?'⭐⭐':'⭐';
   const title=pct>=90?'🎉 Brilliant!':pct>=60?'👏 Well done!':'💪 Keep practising!';
@@ -489,6 +529,7 @@ function MenuScreen({ player, onStart, onProgress, onLogout }) {
     {id:'spell',  icon:'🖊️',title:'Spell It!',     desc:'Build words letter by letter',  border:'#10b981',color:'#10b981'},
     {id:'trace',  icon:'✍️',title:'Trace & Write', desc:'Practise every letter',         border:'#ec4899',color:'#ec4899'},
     {id:'story',  icon:'📖',title:'Story Builder', desc:'Put words in the right order',  border:'#f59e0b',color:'#d97706'},
+    {id:'math',   icon:'🔢',title:'Math Magic',    desc:'Addition & subtraction fun',    border:'#8b5cf6',color:'#7c3aed'},
   ];
   return (
     <div style={{maxWidth:860,margin:'0 auto',padding:'34px 20px',textAlign:'center'}}>
@@ -497,7 +538,13 @@ function MenuScreen({ player, onStart, onProgress, onLogout }) {
         Welcome back, {player.Avatar} <strong>{player.Username}</strong>!
       </p>
       <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:18,maxWidth:660,margin:'0 auto 26px'}}>
-        {cards.map(c=><MenuCard key={c.id} c={c} onStart={onStart}/>)}
+        {cards.slice(0,4).map(c=><MenuCard key={c.id} c={c} onStart={onStart}/>)}
+      </div>
+      {/* Math card centred on its own row */}
+      <div style={{display:'flex',justifyContent:'center',marginBottom:26}}>
+        <div style={{width:'calc(50% - 9px)',maxWidth:310}}>
+          <MenuCard c={cards[4]} onStart={onStart}/>
+        </div>
       </div>
       <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}>
         <Btn onClick={onProgress} color="#6d28d9">📊 My Progress</Btn>
@@ -693,16 +740,16 @@ function TraceGame({ player, onMenu }) {
   const [traced,    setTraced]     = useState(new Set());
   const [feedback,  setFeedback]   = useState('');
   const [celebrate, setCelebrate]  = useState(false);
-  const [showMat,   setShowMat]    = useState(true);   // teach mat open by default
+  const [showMat,   setShowMat]    = useState(true);
   const canvasRef      = useRef(null);
   const drawing        = useRef(false);
   const lastPos        = useRef({x:0, y:0});
   const strokeCount    = useRef(0);
   const animRef        = useRef(null);
-  const guideCellsRef  = useRef(new Set()); // grid cells occupied by guide letter
-  const hitCellsRef    = useRef(new Set()); // guide cells the user's pen crossed
+  const guideCellsRef  = useRef(new Set());
+  const hitCellsRef    = useRef(new Set());
 
-  const CELL = 10; // px per grid cell for coverage check
+  const CELL = 10;
 
   function buildGuideCells(letter, width, height) {
     const off = document.createElement('canvas');
@@ -727,13 +774,11 @@ function TraceGame({ player, onMenu }) {
 
   const info = LETTER_INFO[current] || {};
 
-  // ── draw ruled lines + ghost letter ─────────────────────────────────────────
   function drawGuide(letter) {
     const c = canvasRef.current; if (!c) return;
     const ctx = c.getContext('2d');
     ctx.clearRect(0, 0, c.width, c.height);
 
-    // Writing-book ruled lines
     const lines = [c.height*0.13, c.height*0.46, c.height*0.73, c.height*0.89];
     const styles= ['rgba(59,130,246,0.22)','rgba(59,130,246,0.12)','rgba(59,130,246,0.30)','rgba(59,130,246,0.10)'];
     const dashes= [[],[6,4],[],[4,6]];
@@ -744,7 +789,6 @@ function TraceGame({ player, onMenu }) {
     });
     ctx.setLineDash([]);
 
-    // Ghost letter to trace over
     ctx.font='bold 175px Arial,sans-serif';
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle='rgba(236,72,153,0.10)';
@@ -765,7 +809,6 @@ function TraceGame({ player, onMenu }) {
     }
   }, [current]);
 
-  // ── Watch Me animation ───────────────────────────────────────────────────────
   function watchMe() {
     const c = canvasRef.current; if (!c) return;
     const ctx = c.getContext('2d');
@@ -779,12 +822,11 @@ function TraceGame({ player, onMenu }) {
 
     function frame(now) {
       const t    = Math.min((now - start) / duration, 1);
-      const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;   // ease in-out
+      const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
 
       ctx.clearRect(0, 0, c.width, c.height);
       drawGuide(letter);
 
-      // Progressive clip: reveal the filled letter from top to bottom
       ctx.save();
       ctx.beginPath();
       ctx.rect(0, 0, c.width, c.height * ease + 8);
@@ -795,7 +837,6 @@ function TraceGame({ player, onMenu }) {
       ctx.fillText(letter, c.width/2, c.height/2+10);
       ctx.restore();
 
-      // Moving pink "pen" dot that follows the reveal
       const penY = Math.min(c.height * ease + 4, c.height - 8);
       ctx.beginPath();
       ctx.arc(c.width/2, penY, 7, 0, Math.PI*2);
@@ -808,14 +849,12 @@ function TraceGame({ player, onMenu }) {
       if (t < 1) {
         animRef.current = requestAnimationFrame(frame);
       } else {
-        // Small pause then reset to blank guide for tracing
         setTimeout(()=>{ drawGuide(letter); strokeCount.current=0; hitCellsRef.current=new Set(); }, 700);
       }
     }
     animRef.current = requestAnimationFrame(frame);
   }
 
-  // ── Drawing handlers ─────────────────────────────────────────────────────────
   function getPos(e,c){
     const r=c.getBoundingClientRect(), src=e.touches?e.touches[0]:e;
     return {x:(src.clientX-r.left)*(c.width/r.width), y:(src.clientY-r.top)*(c.height/r.height)};
@@ -828,7 +867,6 @@ function TraceGame({ player, onMenu }) {
     ctx.beginPath(); ctx.moveTo(lastPos.current.x,lastPos.current.y); ctx.lineTo(pos.x,pos.y); ctx.stroke();
     lastPos.current=pos;
     strokeCount.current += 1;
-    // Track coverage: mark any guide cells the pen passes through
     const cx = Math.floor(pos.x/CELL), cy = Math.floor(pos.y/CELL);
     const key = `${cx},${cy}`;
     if (guideCellsRef.current.has(key)) hitCellsRef.current.add(key);
@@ -869,7 +907,6 @@ function TraceGame({ player, onMenu }) {
 
   function selectLetter(letter){ setCurrent(letter); setFeedback(''); }
 
-  // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div style={{maxWidth:720,margin:'0 auto',padding:'28px 20px'}}>
       <SonicCelebration active={celebrate}/>
@@ -877,7 +914,6 @@ function TraceGame({ player, onMenu }) {
       <h2 style={{textAlign:'center',fontSize:'1.9rem',fontWeight:900,color:'#ec4899',marginBottom:16}}>✍️ Trace &amp; Write</h2>
 
       <div style={{background:'white',borderRadius:22,padding:'24px 28px',boxShadow:'0 4px 20px rgba(124,58,237,0.14)',textAlign:'center'}}>
-        {/* Letter picker */}
         <div style={{display:'flex',flexWrap:'wrap',justifyContent:'center',gap:6,maxWidth:530,margin:'0 auto 16px'}}>
           {ALPHABET.split('').map(letter=>{
             const it=traced.has(letter), ic=letter===current;
@@ -893,7 +929,6 @@ function TraceGame({ player, onMenu }) {
           })}
         </div>
 
-        {/* Current letter label */}
         <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:14,marginBottom:12,flexWrap:'wrap'}}>
           <div style={{color:'#6b7280',fontSize:'0.95rem'}}>
             Now write: <strong style={{color:'#ec4899',fontSize:'1.35rem'}}>{current}</strong>
@@ -901,7 +936,6 @@ function TraceGame({ player, onMenu }) {
           </div>
         </div>
 
-        {/* ── Teach Mat toggle bar — always visible ── */}
         <div style={{borderTop:'2px solid #fde68a',borderBottom:'2px solid #fde68a',
           margin:'0 -28px 16px',padding:'0'}}>
           <button onClick={()=>setShowMat(m=>!m)}
@@ -913,13 +947,11 @@ function TraceGame({ player, onMenu }) {
           </button>
         </div>
 
-        {/* ── Teach Mat content ── */}
         {showMat && (
           <div style={{background:'#fefce8',borderRadius:16,padding:'16px 18px',
             marginBottom:16,textAlign:'left',border:'1px solid #fde68a'}}>
 
             <div style={{display:'flex',gap:18,alignItems:'center',flexWrap:'wrap'}}>
-              {/* Big letter display: upper + lower */}
               <div style={{background:'white',borderRadius:14,padding:'10px 18px',
                 boxShadow:'0 2px 8px rgba(0,0,0,0.07)',minWidth:90,textAlign:'center'}}>
                 <div style={{fontSize:'3.6rem',fontWeight:900,color:'#7c3aed',lineHeight:1}}>{current}</div>
@@ -928,7 +960,6 @@ function TraceGame({ player, onMenu }) {
               </div>
 
               <div style={{flex:1,minWidth:180}}>
-                {/* Example word */}
                 <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
                   <span style={{fontSize:'2rem'}}>{info.emoji}</span>
                   <div>
@@ -936,7 +967,6 @@ function TraceGame({ player, onMenu }) {
                     <div style={{fontSize:'0.8rem',color:'#6b7280'}}>starts with <strong style={{color:'#7c3aed'}}>{current}</strong></div>
                   </div>
                 </div>
-                {/* Stroke tip */}
                 <div style={{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:10,
                   padding:'8px 12px',fontSize:'0.88rem',color:'#92400e',lineHeight:1.5}}>
                   ✏️ {info.tip}
@@ -944,7 +974,6 @@ function TraceGame({ player, onMenu }) {
               </div>
             </div>
 
-            {/* Watch Me button */}
             <button onClick={watchMe}
               style={{marginTop:14,padding:'9px 22px',borderRadius:50,fontWeight:700,fontSize:'0.9rem',
                 border:'none',cursor:'pointer',background:'linear-gradient(135deg,#ec4899,#8b5cf6)',
@@ -954,13 +983,11 @@ function TraceGame({ player, onMenu }) {
           </div>
         )}
 
-        {/* Canvas */}
         <canvas ref={canvasRef} width={340} height={260}
           style={{border:'3px solid #ec4899',borderRadius:18,cursor:'crosshair',touchAction:'none',maxWidth:'100%'}}
           onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
           onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}/>
 
-        {/* Buttons */}
         <div style={{display:'flex',gap:10,justifyContent:'center',marginTop:14,flexWrap:'wrap'}}>
           <button onClick={clearCanvas}
             style={{padding:'10px 20px',borderRadius:50,fontWeight:700,background:'#f3f4f6',border:'none',cursor:'pointer',fontSize:'0.92rem'}}>
@@ -1066,6 +1093,86 @@ function WordChip({word,inSentence,onClick}){
   );
 }
 
+// ── MATH MAGIC ────────────────────────────────────────────────────────────────
+function MathMagicGame({ player, onFinish, onMenu }) {
+  const [questions]             = useState(()=>generateMathQuestions(10));
+  const [qIdx,setQIdx]          = useState(0);
+  const [score,setScore]        = useState(0);
+  const [answered,setAnswered]  = useState(false);
+  const [chosen,setChosen]      = useState(null);
+  const [feedback,setFeedback]  = useState('');
+  const [celebrate,setCelebrate]= useState(false);
+  const scoreRef = useRef(0);
+
+  const q = questions[qIdx];
+
+  function handleAnswer(choice) {
+    if (answered) return;
+    setAnswered(true); setChosen(choice);
+    const ok = choice === q.answer;
+    const ns = scoreRef.current + (ok ? 1 : 0); scoreRef.current = ns;
+    if (ok) {
+      SFX.correct(); SFX.ring();
+      setCelebrate(true); setTimeout(()=>setCelebrate(false), 1500);
+      setFeedback('✅ Correct! Great maths!'); setScore(ns);
+    } else {
+      SFX.wrong();
+      setFeedback(`❌ The answer is ${q.answer}`);
+    }
+    setTimeout(()=>{ if(qIdx+1>=10) onFinish(ns,10); else { setQIdx(i=>i+1); setAnswered(false); setChosen(null); setFeedback(''); } }, 1800);
+  }
+
+  function choiceStyle(c) {
+    const base = { width:80, height:80, borderRadius:16, fontSize:'1.7rem', fontWeight:900,
+      border:'3px solid #e5e7eb', background:'white', cursor: answered?'default':'pointer',
+      transition:'all 0.2s', color:'#1e1b4b' };
+    if (!answered) return base;
+    if (c === q.answer)  return {...base, borderColor:'#10b981', background:'#d1fae5', color:'#065f46'};
+    if (c === chosen)    return {...base, borderColor:'#ef4444', background:'#fee2e2', color:'#991b1b'};
+    return {...base, opacity:0.4};
+  }
+
+  // Visual representation with dots/emojis for small numbers
+  function visual(n) {
+    if (n <= 10) return '⚽'.repeat(n) || '∅';
+    return null;
+  }
+
+  return (
+    <div style={{maxWidth:680,margin:'0 auto',padding:'28px 20px'}}>
+      <SonicCelebration active={celebrate}/>
+      <BackBtn onMenu={onMenu}/>
+      <h2 style={{textAlign:'center',fontSize:'1.9rem',fontWeight:900,color:'#8b5cf6',marginBottom:6}}>🔢 Math Magic</h2>
+      <div style={{textAlign:'center',color:'#6b7280',marginBottom:4}}>Question {qIdx+1} of 10 | Score: {score}</div>
+      <ProgBar current={qIdx} total={10} gradient="linear-gradient(90deg,#8b5cf6,#ec4899)"/>
+      <Card>
+        {/* Visual aid */}
+        <div style={{fontSize:'1.4rem',letterSpacing:2,marginBottom:8,minHeight:36,color:'#7c3aed',wordBreak:'break-all'}}>
+          {visual(q.a)}
+        </div>
+
+        {/* The equation */}
+        <div style={{fontSize:'3.8rem',fontWeight:900,letterSpacing:6,marginBottom:8,
+          background:'linear-gradient(135deg,#8b5cf6,#ec4899)',
+          WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>
+          {q.a} {q.op} {q.b} = ?
+        </div>
+
+        <p style={{color:'#6b7280',marginBottom:24,fontSize:'1rem'}}>Pick the right answer 👇</p>
+
+        <div style={{display:'flex',gap:16,justifyContent:'center',flexWrap:'wrap',marginBottom:10}}>
+          {q.choices.map(c=>(
+            <button key={c} style={choiceStyle(c)} onClick={()=>handleAnswer(c)} disabled={answered}>
+              {c}
+            </button>
+          ))}
+        </div>
+        <Feedback text={feedback} good={feedback.startsWith('✅')}/>
+      </Card>
+    </div>
+  );
+}
+
 // ── ROOT APP ──────────────────────────────────────────────────────────────────
 function LogoutButton({ onLogout }) {
   const [confirming, setConfirming] = useState(false);
@@ -1100,9 +1207,9 @@ function App() {
   const [screen,setScreen]   = useState('login');
   const [player,setPlayer]   = useState(null);
   const [stars,setStars]     = useState(0);
+  // FIX: winData now carries `game` so WinScreen's onReplay navigates to the correct game
   const [winData,setWinData] = useState({score:0,total:10,game:''});
 
-  // Restore session from localStorage on first load
   useEffect(() => {
     try {
       const saved = localStorage.getItem('ww_session');
@@ -1124,12 +1231,15 @@ function App() {
     setScreen('login');
   }
 
+  // FIX: capture the current screen in `currentGame` before switching to 'win',
+  // so the replay button goes back to the right game (not 'win' itself).
   async function handleWin(score, total) {
+    const currentGame = screen;
     setStars(s=>s+score);
     if (player?.PlayerId) {
-      await apiPost('/scores',{playerId:player.PlayerId,gameType:screen,score,totalQuestions:total});
+      await apiPost('/scores',{playerId:player.PlayerId,gameType:currentGame,score,totalQuestions:total});
     }
-    setWinData({score,total,game:screen});
+    setWinData({score,total,game:currentGame});
     setScreen('win');
   }
 
@@ -1161,6 +1271,7 @@ function App() {
       {screen==='spell'    && <SpellItGame      {...cp}/>}
       {screen==='trace'    && <TraceGame player={player} onMenu={()=>setScreen('menu')}/>}
       {screen==='story'    && <StoryBuilderGame {...cp}/>}
+      {screen==='math'     && <MathMagicGame    {...cp}/>}
       {screen==='win'      && <WinScreen {...winData} player={player} onReplay={()=>setScreen(winData.game)} onMenu={()=>setScreen('menu')}/>}
     </div>
   );
